@@ -1,6 +1,7 @@
 import express from 'express';
 import { getLatestValues } from './db';
 import { apiService } from './api-service';
+import { config } from './config';
 
 const app = express();
 const PORT = 3000;
@@ -71,11 +72,11 @@ async function printLatestValues() {
         for (const row of values) {
             const key = createKey(row.CrusherInterfaceId, row.ParameterName); // Create key
             const previousValue = previousValues[key]; // Get previous value
-            const currentValue = formatValue(row.Value); // Get current value
+            const currentValue = formatValue(row.Value); // Get current value, format null to zero
             const hasChanged = previousValue !== row.Value; // Check if value has changed
             
             if (hasChanged) { // If value has changed
-                await sleep(200); // Stagger so destination api isnt overwhelmed
+                await sleep(50); // Stagger so destination api isnt overwhelmed
                 // Output only when first change found
                 if (!changesFound) {
                     console.log('\nValue Changes Detected:', timestamp);
@@ -108,7 +109,21 @@ async function printLatestValues() {
 
 // Print values immediately and then every minute
 printLatestValues();
-setInterval(printLatestValues, 60000);
+//setInterval(printLatestValues, 60000);
+
+// Mutex-like pattern to prevent overlap if any printLatestValues runs longer than interval time
+let isRunning = false;
+setInterval(async () => {
+    if (isRunning) return;
+    isRunning = true;
+    try {
+        await printLatestValues();
+    } catch (error) {
+        console.error(error);
+    } finally {
+        isRunning = false;
+    }
+}, config.updateInterval);
 
 app.listen(PORT, () => {
      console.log(`Server is running on http://localhost:${PORT}`);

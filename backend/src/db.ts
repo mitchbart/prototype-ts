@@ -22,7 +22,7 @@ export async function getLatestValues(): Promise<CrusherParameter[]> {
                     Value,
                     ValueLastUpdate
                 FROM ${config.db.table}
-                ORDER BY Id DESC
+                ORDER BY ValueLastUpdate DESC
                 OFFSET 0 ROWS FETCH FIRST 20 ROWS ONLY
             `);
         

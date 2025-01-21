@@ -34,8 +34,8 @@ class AuthenticationService {
                 obtainedAt: Date.now()
             };
 
-            // Log the new token details
-            this.logTokenDetails(token);
+            // Log the new token details - testing only
+            // this.logTokenDetails(token);
             
             return token;
         } catch (error) {
@@ -44,6 +44,7 @@ class AuthenticationService {
         }
     }
 
+    // Check if token is expired
     private isTokenExpired(): boolean {
         if (!this.currentToken) return true;
 
@@ -53,6 +54,7 @@ class AuthenticationService {
         return now >= (expirationTime - 60000);
     }
 
+    // Function only for testing to log and check token
     private logTokenDetails(token: AuthToken): void {
         const expirationDate = new Date(token.obtainedAt + (token.expiresIn * 1000));
         console.log('\nNew Authentication Token Obtained');
@@ -64,7 +66,9 @@ class AuthenticationService {
         console.log('----------------------------------------\n');
     }
 
+    // Get token
     async getValidToken(): Promise<string> {
+        // If token is expired or doesn't exist, fetch a new token
         if (this.isTokenExpired()) {
             this.currentToken = await this.fetchNewToken();
         } else {

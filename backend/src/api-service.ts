@@ -9,24 +9,26 @@ interface UpdateParameterOptions {
     value: number;
 }
 
-// Needs to be done to get around SSL error
+// Needs to be done to get around SSL error - is there a way to get around needing to do this?
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 class ApiService {
-    // private readonly baseUrl: string;
-    // private readonly apiVersion: string;
+    // Constructor with calls for to config purely for readability
+    private readonly baseUrl: string;
+    private readonly apiVersion: string;
 
-    // constructor() {
-    //     this.baseUrl = config.api.destinationApiUrl;
-    //     this.apiVersion = config.api.version;
-    // }
+    constructor() {
+        this.baseUrl = config.api.destinationApiUrl;
+        this.apiVersion = config.api.version;
+    }
 
     async updateParameter({ crusherId, parameterName, value }: UpdateParameterOptions): Promise<void> {
         try {
-            const token = await authService.getValidToken();
-            // const url = `${this.baseUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${this.apiVersion}`;
-            const url = `${config.api.destinationApiUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${config.api.version}`;
+            const token = await authService.getValidToken(); // Get token
+            const url = `${this.baseUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${this.apiVersion}`;
+            // const url = `${config.api.destinationApiUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${config.api.version}`; // Build url for patch
             
+            //Send patch request to api, store response
             const response = await axios({
                 method: 'PATCH',
                 url,
@@ -38,6 +40,7 @@ class ApiService {
                 httpsAgent
             });
 
+            // May need to add additional success checks with other api's
             if (response.status === 200) {
                 console.log(`Successfully updated parameter ${parameterName} for crusher ${crusherId}`);
             }
@@ -50,7 +53,7 @@ class ApiService {
             } else {
                 console.error(`Unexpected error updating parameter ${parameterName} for crusher ${crusherId}:`, error);
             }
-            throw error;
+            throw error; // Throw error to index.ts
         }
     }
 }
