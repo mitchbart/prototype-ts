@@ -9,12 +9,16 @@ interface CrusherCache {
     [key: string]: number | null;
 }
 
+// Init previous values hashmap - previous values are compared to current values to check if update is required
 let previousValues: CrusherCache = {}
 
+// Key for caching consists of crusher id + paramter name
 function createKey(crusherId: number, parameterName: string): string {
     return `${crusherId}-${parameterName}`;
 }
 
+// Function to format epoch time from crusher SQL database
+// Epoch time in this database is not localised, setting timezone to GMT gets the correct time
 function formatEpochTime(epoch: number): string {
     try {
         const milliseconds = epoch * 1000;
@@ -25,6 +29,7 @@ function formatEpochTime(epoch: number): string {
     }
 }
 
+// Null values are set to zero
 function formatValue(value: number | null): number {
     if (value === null) {
         return 0;
@@ -32,9 +37,10 @@ function formatValue(value: number | null): number {
     return value;
 }
 
-// Utility function for sleeping - used to limit frequency of requests sent
+// Utility function for sleeping - used to limit frequency of requests sent to prevent overwhelming api
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Function to send parameters that have changed to api service for patching
 async function updateChangedValue(crusherId: number, parameterName: string, value: number) {
     try {
         await apiService.updateParameter({
@@ -47,26 +53,37 @@ async function updateChangedValue(crusherId: number, parameterName: string, valu
     }
 }
 
+// Print values from SQL database to console
 async function printLatestValues() {
     try {
-        const values = await getLatestValues();
-        const timestamp = formatEpochTime(values[0].ValueLastUpdate);
-        let changesFound = false;
+        const values = await getLatestValues(); // Get latest values from source database
+        // Check values retreived before getting timestamp
+        if (values.length === 0) {
+            console.log('No values retrieved from database');
+            return;
+        }
+        // Create timestamp of when values were updated according to db
+        const timestamp = formatEpochTime(values[0].ValueLastUpdate); 
+
+        let changesFound = false; // Init changes found as false
         
+        // Iterate over each row of values
         for (const row of values) {
-            await sleep(200);
-            const key = createKey(row.CrusherInterfaceId, row.ParameterName);
-            const previousValue = previousValues[key];
-            const currentValue = formatValue(row.Value);
-            const hasChanged = previousValue !== row.Value;
+            const key = createKey(row.CrusherInterfaceId, row.ParameterName); // Create key
+            const previousValue = previousValues[key]; // Get previous value
+            const currentValue = formatValue(row.Value); // Get current value
+            const hasChanged = previousValue !== row.Value; // Check if value has changed
             
-            if (hasChanged) {
+            if (hasChanged) { // If value has changed
+                await sleep(200); // Stagger so destination api isnt overwhelmed
+                // Output only when first change found
                 if (!changesFound) {
                     console.log('\nValue Changes Detected:', timestamp);
                     console.log('----------------------------------------');
                 }
-                changesFound = true;
+                changesFound = true; // Flip changes found switch
                 
+                // Info output to console
                 console.log(`Crusher Interface ID: ${row.CrusherInterfaceId}`);
                 console.log(`Parameter: ${row.ParameterName}`);
                 console.log(`Value: ${currentValue}`);

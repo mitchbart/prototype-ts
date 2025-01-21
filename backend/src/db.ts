@@ -27,7 +27,7 @@ export async function getLatestValues(): Promise<CrusherParameter[]> {
             `);
         
         // Debug log - only for testing
-        console.log('Raw database result:', result.recordset[0]);
+        // console.log('Raw database result:', result.recordset[0]);
         
         await pool.close();
         return result.recordset;
