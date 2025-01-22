@@ -3,6 +3,7 @@ import { getLatestValues } from './db';
 import { apiService } from './api-service';
 import { config } from './config';
 import { closePool } from './db';
+import { AppError } from './custom-errors';
 
 const app = express();
 const PORT = 3000;
@@ -51,24 +52,36 @@ async function updateChangedValue(crusherId: number, parameterName: string, valu
             value
         });
     } catch (error) {
-        console.error(`Failed to update value for crusher ${crusherId}, parameter ${parameterName}:`, error);
+        if (error instanceof AppError) {
+            console.error(error.message);
+        } else {
+            console.error(`Unexpected error: ${error instanceof Error ? error.message : 'unknown error'}`);
+        }
     }
 }
 
 // Print values from SQL database to console, patch any updatedvalues to api
 async function updateValues() {
     try {
-        const values = await getLatestValues(); // Get latest values from source database
-        // Check values retreived before getting timestamp
+        // Check API health before proceeding
+        const isApiHealthy = await apiService.healthCheck();
+        if (!isApiHealthy) {
+            console.log('Skipping updates: API is not responding');
+            return;
+        }
+
+        // Get latest values from source database
+        const values = await getLatestValues();
+        // Check values retreived before getting timestamp - should never happen as error will be thrown prior
         if (values.length === 0) {
             console.log('No values retrieved from database');
             return;
         }
         // Create timestamp of when values were updated according to db
         const timestamp = formatEpochTime(values[0].ValueLastUpdate); 
-
         let changesFound = false; // Init changes found as false
         
+
         // Iterate over each row of values
         for (const row of values) {
             const key = createKey(row.CrusherInterfaceId, row.ParameterName); // Create key
@@ -86,10 +99,10 @@ async function updateValues() {
                 changesFound = true; // Flip changes found switch
                 
                 // Info output to console
-                console.log(`Crusher Interface ID: ${row.CrusherInterfaceId}`);
-                console.log(`Parameter: ${row.ParameterName}`);
-                console.log(`Value: ${currentValue}`);
-                console.log('----------------------------------------');
+                // console.log(`Crusher Interface ID: ${row.CrusherInterfaceId}`);
+                // console.log(`Parameter: ${row.ParameterName}`);
+                // console.log(`Value: ${currentValue}`);
+                // console.log('----------------------------------------');
                 
                 // Send update to API
                 await updateChangedValue(row.CrusherInterfaceId, row.ParameterName, currentValue);
@@ -98,19 +111,26 @@ async function updateValues() {
             // Update cache with new value
             previousValues[key] = row.Value;
         }
+        // Format line
+        console.log('----------------------------------------');
         
         if (!changesFound) {
             console.log(`\n${timestamp}: No value changes detected`);
         }
         
     } catch (error) {
-        console.error('Error fetching values:', error);
+        if (error instanceof AppError) {
+            console.error(error.message);
+        } else {
+            console.error(`Error updating values: ${error instanceof Error ? error.message : 'unknown error'}`);
+        }
     }
+    // Add to track next update time
+    console.log("Next update at: ");
 }
 
 // Print values immediately and then every minute
 updateValues();
-//setInterval(updateValues, 60000);
 
 // Mutex-like pattern to prevent overlap if any updateValues runs longer than interval time
 let isRunning = false;

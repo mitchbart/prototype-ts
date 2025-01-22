@@ -1,12 +1,12 @@
 import dotenv from 'dotenv';
-import { ConfigError } from './errors';
+import { ConfigError } from './custom-errors';
 
 dotenv.config();
 
 function requireEnv(name: string): string {
     const value = process.env[name];
     if (!value) {
-        throw new ConfigError(`Missing required environment variable: ${name}`);
+        throw new ConfigError(name);
     }
     return value;
 }

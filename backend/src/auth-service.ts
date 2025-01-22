@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from './config';
+import { AuthenticationError } from './custom-errors';
 
 interface AuthToken {
     accessToken: string;
@@ -39,16 +40,14 @@ class AuthenticationService {
             
             return token;
         } catch (error) {
-            // Fix up this error - not working and too much info
-            if (axios.isAxiosError(error)) {
-                console.error(`Axios error fetching authentication token:`, {
-                    status: error.response?.status,
-                    message: error.response?.data
-                });
-            } else {
-                console.error('Error fetching authentication token:', error);
+            if (axios.isAxiosError(error)) { // Find out the proper way to pass axios details to error message
+                // console.log(error);
+                console.log("Unable to fetch authentication token");
+                throw new AuthenticationError(
+                    `Status: ${error.response?.status}, Details: ${JSON.stringify(error.response?.data)}`
+                );
             }
-            throw new Error('Failed to fetch authentication token');
+            throw new AuthenticationError(error instanceof Error ? error.message : 'unknown error')
         }
     }
 
@@ -84,7 +83,7 @@ class AuthenticationService {
             const remainingTime = Math.floor(
                 (this.currentToken!.obtainedAt + (this.currentToken!.expiresIn * 1000) - Date.now()) / 1000
             );
-            console.log(`Using existing token (expires in ${remainingTime} seconds)`);
+            // console.log(`Using existing token (expires in ${remainingTime} seconds)`); // Log for testing
         }
         return this.currentToken!.accessToken;
     }

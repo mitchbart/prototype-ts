@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { authService } from './auth-service';
 import { config } from './config';
+import { ApiError } from './custom-errors';
 
 interface UpdateParameterOptions {
     crusherId: number;
@@ -20,6 +21,30 @@ class ApiService {
     constructor() {
         this.baseUrl = config.api.destinationApiUrl;
         this.apiVersion = config.api.version;
+    }
+
+    // Health check checks connection to api before proceeding with main function
+    async healthCheck(): Promise<boolean> {
+        try {
+            const token = await authService.getValidToken();
+            // Make a GET request to the base API URL
+            await axios({
+                method: 'GET',
+                url: `${this.baseUrl}/api/crushers?api-version=${this.apiVersion}`,
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                httpsAgent
+            });
+            return true;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.error(`API health check failed: Status ${error.response?.status}`);
+            } else {
+                console.error('API health check failed:', error instanceof Error ? error.message : 'unknown error');
+            }
+            return false;
+        }
     }
 
     async updateParameter({ crusherId, parameterName, value }: UpdateParameterOptions): Promise<void> {
@@ -46,14 +71,19 @@ class ApiService {
             }
         } catch (error) {
             if (axios.isAxiosError(error)) {
-                console.error(`Error updating parameter ${parameterName} for crusher ${crusherId}:`, {
-                    status: error.response?.status,
-                    message: error.response?.data
-                });
-            } else {
-                console.error(`Unexpected error updating parameter ${parameterName} for crusher ${crusherId}:`, error);
+                throw new ApiError(
+                    'update',
+                    crusherId,
+                    parameterName,
+                    `Status: ${error.response?.status}, Details: ${JSON.stringify(error.response?.data)}`
+                );
             }
-            throw error; // Throw error to index.ts
+            throw new ApiError(
+                'update',
+                crusherId,
+                parameterName,
+                error instanceof Error ? error.message : 'unknown error'
+            );
         }
     }
 }
