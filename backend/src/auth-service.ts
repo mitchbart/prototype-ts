@@ -39,7 +39,15 @@ class AuthenticationService {
             
             return token;
         } catch (error) {
-            console.error('Error fetching authentication token:', error);
+            // Fix up this error - not working and too much info
+            if (axios.isAxiosError(error)) {
+                console.error(`Axios error fetching authentication token:`, {
+                    status: error.response?.status,
+                    message: error.response?.data
+                });
+            } else {
+                console.error('Error fetching authentication token:', error);
+            }
             throw new Error('Failed to fetch authentication token');
         }
     }

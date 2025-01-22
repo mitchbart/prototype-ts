@@ -2,6 +2,7 @@ import express from 'express';
 import { getLatestValues } from './db';
 import { apiService } from './api-service';
 import { config } from './config';
+import { closePool } from './db';
 
 const app = express();
 const PORT = 3000;
@@ -54,8 +55,8 @@ async function updateChangedValue(crusherId: number, parameterName: string, valu
     }
 }
 
-// Print values from SQL database to console
-async function printLatestValues() {
+// Print values from SQL database to console, patch any updatedvalues to api
+async function updateValues() {
     try {
         const values = await getLatestValues(); // Get latest values from source database
         // Check values retreived before getting timestamp
@@ -108,16 +109,16 @@ async function printLatestValues() {
 }
 
 // Print values immediately and then every minute
-printLatestValues();
-//setInterval(printLatestValues, 60000);
+updateValues();
+//setInterval(updateValues, 60000);
 
-// Mutex-like pattern to prevent overlap if any printLatestValues runs longer than interval time
+// Mutex-like pattern to prevent overlap if any updateValues runs longer than interval time
 let isRunning = false;
 setInterval(async () => {
     if (isRunning) return;
     isRunning = true;
     try {
-        await printLatestValues();
+        await updateValues();
     } catch (error) {
         console.error(error);
     } finally {
@@ -125,6 +126,35 @@ setInterval(async () => {
     }
 }, config.updateInterval);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
      console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// Unified cleanup function
+async function gracefulShutdown(signal: string) {
+    console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+    try {
+        // Close the HTTP server first to stop accepting new requests
+        await new Promise<void>((resolve, reject) => {
+            server.close((err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        console.log('HTTP server closed');
+
+        // Close the database pool
+        await closePool();
+        console.log('Database connections closed');
+
+        console.log('Graceful shutdown completed');
+        process.exit(0);
+    } catch (err) {
+        console.error('Error during shutdown:', err);
+        process.exit(1);
+    }
+}
+
+// Register the handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
