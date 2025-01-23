@@ -18,6 +18,7 @@ export const config = {
         server: requireEnv('DB_SERVER'),
         database: requireEnv('DB_DATABASE'),
         table: requireEnv('DB_TABLE'),
+        rows: requireEnv('DB_NUMBER_ROWS'),
         options: {
             encrypt: false,
             trustServerCertificate: true

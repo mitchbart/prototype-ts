@@ -63,7 +63,7 @@ export async function getLatestValues(): Promise<CrusherParameter[]> {
                 ValueLastUpdate
             FROM ${config.db.table}
             ORDER BY ValueLastUpdate DESC
-            OFFSET 0 ROWS FETCH FIRST 20 ROWS ONLY
+            OFFSET 0 ROWS FETCH FIRST ${config.db.rows} ROWS ONLY
         `);
         
         // Debug log - only for testing
@@ -72,6 +72,7 @@ export async function getLatestValues(): Promise<CrusherParameter[]> {
         // await pool.close();
         return result.recordset;
     } catch (error) {
+        //await closePool(); is it worth closing the database here?
         throw new DatabaseError('query', error instanceof Error ? error.message : 'unknown error');
         // Previously returned empty array - is this still required?
         // return [];

@@ -31,7 +31,7 @@ function formatEpochTime(epoch: number): string {
     }
 }
 
-// Null values are set to zero
+// Null values are set to zero - values of null cant be passed to the API
 function formatValue(value: number | null): number {
     if (value === null) {
         return 0;
