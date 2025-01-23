@@ -1,8 +1,7 @@
 import express from 'express';
-import { getLatestValues } from './db';
+import { getLatestValues, closePool, dbHealthCheck } from './db';
 import { apiService } from './api-service';
 import { config } from './config';
-import { closePool } from './db';
 import { AppError } from './custom-errors';
 
 const app = express();
@@ -63,10 +62,17 @@ async function updateChangedValue(crusherId: number, parameterName: string, valu
 // Print values from SQL database to console, patch any updatedvalues to api
 async function updateValues() {
     try {
-        // Check API health before proceeding
-        const isApiHealthy = await apiService.healthCheck();
+        // API health check before proceeding
+        const isApiHealthy = await apiService.apiHealthCheck();
         if (!isApiHealthy) {
             console.log('Skipping updates: API is not responding');
+            return;
+        }
+
+        // DB health check before proceeding - is this neccessary?
+        const isDbHealthy = await dbHealthCheck();
+        if (!isDbHealthy) {
+            console.log('Skipping updates: No connection to database');
             return;
         }
 
@@ -126,7 +132,7 @@ async function updateValues() {
         }
     }
     // Add to track next update time
-    console.log("Next update at: ");
+    // console.log("Next update at: ");
 }
 
 // Print values immediately and then every minute

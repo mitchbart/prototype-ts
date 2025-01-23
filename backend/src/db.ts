@@ -35,6 +35,19 @@ export async function closePool(): Promise<void> {
     }
 }
 
+// Helper function to check database health
+export async function dbHealthCheck(): Promise<boolean> {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query('SELECT 1');
+        return result.recordset.length === 1;
+    } catch (error) {
+        console.error('Database health check failed:', error);
+        //throw new ConnectionError('source database', error instanceof Error ? error.message : 'unknown error')
+        return false;
+    }
+}
+
 // Get latest update from database
 export async function getLatestValues(): Promise<CrusherParameter[]> {
     try {

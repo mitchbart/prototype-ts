@@ -24,7 +24,7 @@ class ApiService {
     }
 
     // Health check checks connection to api before proceeding with main function
-    async healthCheck(): Promise<boolean> {
+    async apiHealthCheck(): Promise<boolean> {
         try {
             const token = await authService.getValidToken();
             // Make a GET request to the base API URL
