@@ -2,7 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { authService } from './auth-service';
 import { config } from './config';
-import { ApiError } from './custom-errors';
+import { ApiError, HealthCheckError } from './custom-errors';
 
 interface UpdateParameterOptions {
     crusherId: number;
@@ -24,11 +24,10 @@ class ApiService {
     }
 
     // Health check checks connection to api before proceeding with main function
-    async apiHealthCheck(): Promise<boolean> {
+    async apiHealthCheck(): Promise<void> {
         try {
             const token = await authService.getValidToken();
-            // Make a GET request to the base API URL
-            await axios({
+            const response = await axios({
                 method: 'GET',
                 url: `${this.baseUrl}/api/crushers?api-version=${this.apiVersion}`,
                 headers: {
@@ -36,14 +35,12 @@ class ApiService {
                 },
                 httpsAgent
             });
-            return true;
-        } catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.error(`API health check failed: Status ${error.response?.status}`);
-            } else {
-                console.error('API health check failed:', error instanceof Error ? error.message : 'unknown error');
+            
+            if (response.status !== 200) {
+                throw new HealthCheckError('API', `Unexpected status code: ${response.status}`);
             }
-            return false;
+        } catch (error) {
+            throw new HealthCheckError('API', error instanceof Error ? error.message : 'unknown error');
         }
     }
 
@@ -66,9 +63,9 @@ class ApiService {
             });
 
             // May need to add additional success checks with other api's
-            if (response.status === 200) {
-                console.log(`Successfully updated parameter ${parameterName} for crusher ${crusherId}`);
-            }
+            // if (response.status === 200) {
+            //     console.log(`Successfully updated parameter ${parameterName} for crusher ${crusherId}`);
+            // }
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 throw new ApiError(

@@ -1,6 +1,6 @@
 import * as sql from 'mssql';
 import { config } from './config';
-import { DatabaseError, ConnectionError } from './custom-errors';
+import { DatabaseError, ConnectionError, HealthCheckError } from './custom-errors';
 
 // Interface matches exact column names from the database
 interface CrusherParameter {
@@ -36,15 +36,15 @@ export async function closePool(): Promise<void> {
 }
 
 // Helper function to check database health
-export async function dbHealthCheck(): Promise<boolean> {
+export async function dbHealthCheck(): Promise<void> {
     try {
         const pool = await getPool();
         const result = await pool.request().query('SELECT 1');
-        return result.recordset.length === 1;
+        if (result.recordset.length !== 1) {
+            throw new HealthCheckError('database', 'Invalid response from health check query');
+        }
     } catch (error) {
-        console.error('Database health check failed:', error);
-        //throw new ConnectionError('source database', error instanceof Error ? error.message : 'unknown error')
-        return false;
+        throw new HealthCheckError('database', error instanceof Error ? error.message : 'unknown error');
     }
 }
 

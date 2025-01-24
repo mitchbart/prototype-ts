@@ -35,3 +35,9 @@ export class ConnectionError extends AppError {
         super(`Failed to connect to ${service}${details ? `: ${details}` : ''}`);
     }
 }
+
+export class HealthCheckError extends AppError {
+    constructor(service: string, details?: string) {
+        super(`Health check failed for ${service}${details ? `: ${details}` : ''}`);
+    }
+}
