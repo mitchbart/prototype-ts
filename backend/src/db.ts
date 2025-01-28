@@ -16,10 +16,10 @@ let pool: sql.ConnectionPool | null = null;
 export async function getPool(): Promise<sql.ConnectionPool> {
     if (!pool) {
         try {
-            console.log("Initialisiing source database connection pool");
+            console.log("Initialising source database connection pool");
             pool = await sql.connect(config.db);
         } catch (error) {
-            throw new ConnectionError('source database', error instanceof Error ? error.message : 'unknown error')
+            throw new ConnectionError('source database', error instanceof Error ? error.message : 'unknown error');
         }
         
     }

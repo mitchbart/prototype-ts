@@ -37,7 +37,7 @@ export class CrusherService {
     private async updateChangedValue(crusherId: number, parameterName: string, value: number): Promise<void> {
         try {
             await apiService.updateParameter({ crusherId, parameterName, value });
-            console.log(`Successfully updated crusher ${crusherId} parameter ${parameterName}`);
+            // console.log(`Successfully updated crusher ${crusherId} parameter ${parameterName}`);
         } catch (error) {
             if (error instanceof AppError) {
                 console.error(error.message);
@@ -49,19 +49,24 @@ export class CrusherService {
 
     async updateValues(): Promise<void> {
         try {
+            // Perform health checks - error thrown if either doesn't pass
             await Promise.all([apiService.apiHealthCheck(), dbHealthCheck()]);
             
+            // Get latest values from source
             const values = await getLatestValues();
-            if (values.length === 0) {
+            if (values.length === 0) { // This scenario should technically never happen
                 console.log('No values retrieved from database');
                 return;
             }
-            console.log(`Values returned: ${values.length}`); // Testing log
+            // console.log(`Values returned: ${values.length}`); // Testing log
 
-            const timestamp = this.formatEpochTime(values[0].ValueLastUpdate);
+            // Timestamp when update performed
+            const currTimestamp = new Date().toLocaleString("en-GB", {timeZone: "Australia/Brisbane"});
+            // Timestamp when source DB updated
+            const sourceTimestamp = this.formatEpochTime(values[0].ValueLastUpdate);
             let changesFound = false;
 
-            console.log(`Values from: ${timestamp}`); // Testing timestamp
+            
 
             for (const row of values) {
                 const key = this.createKey(row.CrusherInterfaceId, row.ParameterName);
@@ -69,22 +74,22 @@ export class CrusherService {
                 const currentValue = this.formatValue(row.Value);
                 
                 if (previousValue !== row.Value) {
-                    await this.sleep(50);
+                    await this.sleep(50); // Small pause to avoid rate limiting
                     if (!changesFound) {
-                        console.log(`\nValue Changes Detected: ${timestamp}`);
-                        console.log('----------------------------------------');
+                        console.log(`\nSource DB Time Updated: ${sourceTimestamp}`);
+                        console.log(`Value Changes Detected: ${currTimestamp}`);
+                        console.log('--------------------------------------------');
                     }
                     changesFound = true;
-                    
                     await this.updateChangedValue(row.CrusherInterfaceId, row.ParameterName, currentValue);
                 }
-                
+                // Previous value should only be updated if there are no errors
                 this.previousValues[key] = row.Value;
             }
-
-            console.log('----------------------------------------');
+            console.log('--------------------------------------------');
             if (!changesFound) {
-                console.log(`\n${timestamp}: No value changes detected`);
+                console.log(`No Value Changes Found: ${currTimestamp}`);
+                console.log('--------------------------------------------');
             }
 
         } catch (error) {
