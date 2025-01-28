@@ -41,7 +41,6 @@ class AuthenticationService {
             return token;
         } catch (error) {
             if (axios.isAxiosError(error)) { // Find out the proper way to pass axios details to error message
-                // console.log(error);
                 console.log("Unable to fetch authentication token");
                 throw new AuthenticationError(
                     `Status: ${error.response?.status}, Details: ${JSON.stringify(error.response?.data)}`

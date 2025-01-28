@@ -27,13 +27,11 @@ class ApiService {
 
     // Exponential backoff delay for retries
     private async delay(retryCount: number): Promise<void> {
-        // Exponential backoff
-        // const jitter = Math.random() * 200; // Random delay between 0-200ms
         const delayTime = (Math.pow(2, retryCount) * this.baseDelay);
         await new Promise(resolve => setTimeout(resolve, delayTime));
     }
 
-    // Health check checks connection to api before proceeding with main function
+    // Health check on API endpoint
     async apiHealthCheck(): Promise<void> {
         try {
             const token = await authService.getValidToken();
@@ -45,7 +43,7 @@ class ApiService {
                 },
                 httpsAgent
             });
-            
+            // Throw error if response isn't okay
             if (response.status !== 200) {
                 throw new HealthCheckError('API', `Unexpected status code: ${response.status}`);
             }
@@ -55,13 +53,13 @@ class ApiService {
     }
 
     async updateParameter({ crusherId, parameterName, value }: UpdateParameterOptions): Promise<void> {
-        let retryCount = 0; // Number retries
+        let retryCount = 0; // Number of retries
         const maxAttempts = this.maxRetries + 1;
+        // Loop until retires hit max attempts
         while (retryCount < maxAttempts) {
             try {
                 const token = await authService.getValidToken(); // Get token
                 const url = `${this.baseUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${this.apiVersion}`;
-                // const url = `${config.api.destinationApiUrl}/api/crushers/BIN${crusherId}/interfaces/CITEC/parameters/${parameterName}?api-version=${config.api.version}`; // Build url for patch
                 
                 //Send patch request to api, store response
                 const response = await axios({
@@ -74,22 +72,23 @@ class ApiService {
                     data: { value },
                     httpsAgent
                 });
+
                 // May need to add additional success checks with other api's
                 if (response.status === 200) {
-                    // console.log(`Successfully updated parameter ${parameterName} for crusher ${crusherId}`);
                     console.log(`Successfully updated crusher ${crusherId} parameter ${parameterName}`);
                 }
-                
-                return; // Success condition met - exit loop
+
+                // Success updating - exit loop
+                return; 
             } catch (error) {
                 if (axios.isAxiosError(error)) {
-                    if (error.response?.status === 429) { // Retry if rate limited
+                    // Retry if rate limited
+                    if (error.response?.status === 429) { 
                         retryCount++; // Increment retry count
                         console.log(`Rate Limited Exceeded: Retry attempt ${retryCount} of ${this.maxRetries}`);
-                        await this.delay(retryCount); // Add delay time
-                        continue; // Back to beginning of loop
-                    } 
-                    //console.error(error.response);
+                        await this.delay(retryCount); // Add delay time - increases with each retry
+                        continue; // Restart loop
+                    }
                     throw new ApiError(
                         'update',
                         crusherId,
